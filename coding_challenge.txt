@@ -1,0 +1,203 @@
+CREATE DATABASE crime_Management;
+show databases;
+CREATE TABLE Crime (
+    CrimeID INT PRIMARY KEY,
+    IncidentType VARCHAR(255),
+    IncidentDate DATE,
+    Location VARCHAR(255),
+    Description TEXT,
+    Status VARCHAR(20)
+);
+CREATE TABLE Victim (
+    VictimID INT PRIMARY KEY,
+    CrimeID INT,
+    Name VARCHAR(255),
+    Contactinfo VARCHAR(255),
+    Injuries VARCHAR(255),
+    FOREIGN KEY (CrimeID) REFERENCES Crime (CrimeID)
+);
+
+CREATE TABLE Suspect (
+    SuspectID INT PRIMARY KEY,
+    CrimeID INT,
+    Name VARCHAR(255),
+    Description TEXT,
+    CriminalHistory TEXT,
+    FOREIGN KEY (CrimeID) REFERENCES Crime (CrimeID)
+);
+-- Insert sample data into the Crime table
+INSERT INTO Crime (CrimeID, IncidentType, IncidentDate, Location, Description, Status)
+VALUES
+    (7, 'Robbery', '2023-09-15', '123 Main St, Cityville', 'Armed robbery at a convenience store', 'Open'),
+    (8, 'Homicide', '2023-09-20', '456 Elm St, Townsville', 'Investigation into a murder case', 'Under Investigation'),
+    (9, 'Theft', '2023-09-10', '789 Oak St, Villagetown', 'Shoplifting incident at a mall', 'Closed');
+
+
+INSERT INTO Victim (VictimID, CrimeID, Name, Contactinfo, Injuries)
+VALUES
+    (4, 1, 'John Doe', 'johndoe@example.com', 'Minor injuries'),
+    (5, 2, 'Jane Smith', 'janesmith@example.com', 'Deceased'),
+    (6, 3, 'Alice Johnson', 'alicejohnson@example.com', 'None');
+
+
+-- Insert sample data into the Suspect table
+INSERT INTO Suspect (SuspectID, CrimeID, Name, Description, CriminalHistory)
+VALUES
+    (1, 1, 'Robber 1', 'Armed and masked robber', 'Previous robbery convictions'),
+    (2, 2, 'Unknown', 'Investigation ongoing', NULL),
+    (3, 3, 'Suspect 1', 'Shoplifting suspect', 'Prior shoplifting arrests');
+-----------------------------------------------------------------------------------------------------------    
+    -- qus1. Select all open incidents.
+    
+    SELECT * FROM Crime WHERE Status = 'Open';
+    SELECT CrimeID, IncidentType, IncidentDate, Location, Description FROM Crime WHERE Status = 'Open';
+   /* 1	Robbery	2023-09-15	123 Main St, Cityville	Armed robbery at a convenience store
+    4	Robbery	2023-09-15	123 Main St, Cityville	Armed robbery at a convenience store
+*/
+   -- -------------------------------------------------------------------------------------- 
+    -- qus 2. Find the total number of incidents.
+
+    SELECT COUNT(*) AS TotalIncidents FROM Crime;
+    /*
+      5
+      */
+-- ---------------------------------------------------------------------------------------------
+-- qus3. List all unique incident types.
+
+SELECT DISTINCT IncidentType FROM Crime;
+/*
+Robbery
+Homicide
+Theft
+*/
+-- -------------------------------------------------------------------------------------------------
+-- qus4Retrieve incidents that occurred between '2023-09-01' and '2023-09-10'.
+SELECT * FROM Crime 
+WHERE IncidentDate BETWEEN '2023-09-01' AND '2023-09-10';
+/*output
+6	Theft	2023-09-10	789 Oak St, Villagetown	Shoplifting incident at a mall	Closed
+*/
+-- -----------------------------------------------------------------------------------------------------
+
+-- qus 7. List incident types and their counts, only for open cases
+
+SELECT IncidentType, COUNT(*) AS IncidentCount
+FROM Crime
+WHERE Status = 'Open'
+GROUP BY IncidentType;
+/*
+Robbery	3
+*/
+-- --------------------------------------------------------------------------------
+-- qus 8. Find persons with names containing 'Doe'.
+
+SELECT Name
+FROM (
+    SELECT Name FROM Victim
+    UNION ALL
+    SELECT Name FROM Suspect
+) AS Persons
+WHERE Name LIKE '%Doe%';
+/*output 
+John Doe
+John Doe
+*/
+-- ------------------------------------------------------------------------
+-- qus 11. Find persons involved in incidents of the same type as 'Robbery'.
+
+
+SELECT * 
+FROM Victim
+WHERE CrimeID IN (
+    SELECT CrimeID 
+    FROM Crime 
+    WHERE IncidentType = 'Robbery'
+);
+/*output 
+1	1	John Doe	johndoe@example.com	Minor injuries
+4	1	John Doe	johndoe@example.com	Minor injuries
+*/
+-- -------------------------------------------------------------------------
+-- qus12. List incident types with more than one open case.
+
+SELECT IncidentType
+FROM Crime
+WHERE Status = 'Open'
+GROUP BY IncidentType
+HAVING COUNT(*) > 1;
+/*output 
+Robbery
+*/
+---------------------------------------------------------------------------------
+-- qus 13. List all incidents with suspects whose names also appear as victims in other incidents.
+SELECT DISTINCT c.*
+FROM Crime c
+INNER JOIN Suspect s ON c.CrimeID = s.CrimeID
+WHERE s.Name IN (
+    SELECT v.Name
+    FROM Victim v
+    WHERE v.CrimeID <> c.CrimeID
+);
+
+
+-- -----------------------------------------------------------------------
+-- qus 17. List incidents with no suspects involved.
+
+SELECT c.*
+FROM Crime c
+LEFT JOIN Suspect s ON c.CrimeID = s.CrimeID
+WHERE s.SuspectID IS NULL;
+/* output 
+4	Robbery	    2023-09-15	123 Main St,        Cityville	  Armed robbery at a convenience store	       Open
+5	Homicide	2023-09-20 456 Elm St,      Townsville	  Investigation into a murder case	      Under Investigation
+6	Theft	    2023-09-10	789 Oak St,         Villagetown	  Shoplifting incident at a mall	      Closed
+7	Robbery	     2023-09-15	123 Main St,        Cityville	  Armed robbery at a convenience store	       Open
+8	Homicide	2023-09-20	456 Elm St,  Townsville	  Investigation into a murder case	       Under Investigation
+9	Theft	    2023-09-10	789 Oak St,         Villagetown	  Shoplifting incident at a mall	       Closed
+*/
+-- -----------------------------------------------------------------------------------------------------------------
+-- qus 18. List all cases where at least one incident is of type 'Homicide' and all other incidents are of type 'Robbery'.
+SELECT *
+FROM Crime
+WHERE CrimeID IN (
+    SELECT CrimeID
+    FROM Crime
+    WHERE IncidentType = 'Homicide'
+) AND CrimeID NOT IN (
+    SELECT CrimeID
+    FROM Crime
+    WHERE IncidentType != 'Robbery'
+);
+-- -----------------------------------------------------------------------------------------------------------------
+-- qus19. Retrieve a list of all incidents and the associated suspects, showing suspects for each incident, or 'No Suspect' if there are none.
+
+SELECT c.CrimeID, c.IncidentType, s.Name AS SuspectName
+FROM Crime c
+LEFT JOIN Suspect s ON c.CrimeID = s.CrimeID;
+/*output
+1	Robbery	Robber 1
+2	Homicide	Unknown
+4	Robbery	
+5	Homicide	
+6	Theft	
+7	Robbery	
+8	Homicide	
+9	Theft	
+*/
+-- ------------------------------------------------------------------------------------------------
+-- qus 20. List all suspects who have been involved in incidents with incident types 'Robbery' or 'Assault'
+SELECT c.CrimeID, c.IncidentType, s.Name AS SuspectName
+FROM Crime c
+LEFT JOIN Suspect s ON c.CrimeID = s.CrimeID;
+
+/*output
+1	Robbery	Robber 1
+2	Homicide	Unknown
+4	Robbery	
+5	Homicide	
+6	Theft	
+7	Robbery	
+8	Homicide	
+9	Theft	
+*/
+-- -----------------------------------------------------------------------------------------------------------
